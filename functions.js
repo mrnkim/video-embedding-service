@@ -121,7 +121,7 @@ const ingestData = async (videoFilePath, metadata = {}) => {
       end_time: emb.end_offset_sec,
       scope: emb.embedding_scope,
       video_type: metadata.video_type,
-      filename: metadata.filename,
+    //   filename: metadata.filename,
     },
   }));
 
