@@ -5,6 +5,7 @@ const { TwelveLabs } = require("twelvelabs-js");
 
 const TWELVE_LABS_API_KEY = process.env.TWELVE_LABS_API_KEY;
 const TWELVE_LABS_ADS_INDEX = process.env.TWELVE_LABS_ADS_INDEX;
+const TWELVE_LABS_FOOTAGE_INDEX = process.env.TWELVE_LABS_FOOTAGE_INDEX;
 const client = new TwelveLabs({ apiKey: TWELVE_LABS_API_KEY });
 
 async function retrieveEmbedding(taskId) {
@@ -22,7 +23,9 @@ async function retrieveEmbedding(taskId) {
 }
 
 async function prepareVectors() {
-  const taskData = JSON.parse(fs.readFileSync(path.join(__dirname, 'taskIds.json')));
+  const taskData = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "taskIds.json"))
+  );
   const preparedVectors = [];
 
   // Fetch all videos using pagination
@@ -37,8 +40,10 @@ async function prepareVectors() {
   };
 
   // Get first page to know total pages
+  //TODO: Switch this part for ads/footages
   const firstResponse = await fetch(
     `https://api.twelvelabs.io/v1.2/indexes/${TWELVE_LABS_ADS_INDEX}/videos?page=1&page_limit=${pageLimit}`,
+
     options
   );
   const firstPageData = await firstResponse.json();
@@ -50,9 +55,11 @@ async function prepareVectors() {
   }
 
   // Fetch remaining pages
+  //TODO: Switch this part for ads/footages
   for (let page = 2; page <= totalPages; page++) {
     const response = await fetch(
       `https://api.twelvelabs.io/v1.2/indexes/${TWELVE_LABS_ADS_INDEX}/videos?page=${page}&page_limit=${pageLimit}`,
+
       options
     );
     const videoList = await response.json();
@@ -65,20 +72,26 @@ async function prepareVectors() {
   for (const task of taskData) {
     try {
       const embeddings = await retrieveEmbedding(task.taskId);
-      const videoName = path.basename(task.videoFile, path.extname(task.videoFile));
+      const videoName = path.basename(
+        task.videoFile,
+        path.extname(task.videoFile)
+      );
 
-      console.log('\nProcessing video:', videoName);
+      console.log("\nProcessing video:", videoName);
 
-      const matchingVideo = allVideos.find(video =>
-        video.metadata.filename.includes(videoName) || videoName.includes(video.metadata.filename)
+      const matchingVideo = allVideos.find(
+        (video) =>
+          video.metadata.filename.includes(videoName) ||
+          videoName.includes(video.metadata.filename)
       );
       const tlVideoId = matchingVideo ? matchingVideo._id : null;
 
       // Create vectors
       const vectors = embeddings.map((embedding, index) => ({
-        id: embedding.embedding_scope === "video"
-          ? `${videoName}_full`
-          : `${videoName}_${index}`,
+        id:
+          embedding.embedding_scope === "video"
+            ? `${videoName}_full`
+            : `${videoName}_${index}`,
         values: embedding.embedding,
         metadata: {
           video_file: videoName,
@@ -87,8 +100,8 @@ async function prepareVectors() {
           end_time: embedding.end_offset_sec,
           scope: embedding.embedding_scope,
           video_type: task.videoType,
-          tlVideoId
-        }
+          tlVideoId,
+        },
       }));
 
       preparedVectors.push(...vectors);

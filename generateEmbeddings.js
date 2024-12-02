@@ -4,8 +4,8 @@ const path = require("path");
 const { TwelveLabs } = require("twelvelabs-js");
 
 const TWELVE_LABS_API_KEY = process.env.TWELVE_LABS_API_KEY;
-// const FOOTAGES_DIR = "/Users/Miranda/twelveLabs/sampleData/footages";
-const ADS_DIR = "/Users/Miranda/twelveLabs/sampleData/ads";
+const FOOTAGES_DIR = "/Users/Miranda/twelveLabs/sampleData/footages";
+// const ADS_DIR = "/Users/Miranda/twelveLabs/sampleData/ads"; //TODO: Switch this part for ads/footages
 
 const client = new TwelveLabs({ apiKey: TWELVE_LABS_API_KEY });
 
@@ -52,11 +52,13 @@ async function main() {
   const allResults = [];
 
   // Process both directories
-  // const footageResults = await processVideos(FOOTAGES_DIR, "footage");
-  const adsResults = await processVideos(ADS_DIR, "ad");
+  const footageResults = await processVideos(FOOTAGES_DIR, "footage");
+  // const adsResults = await processVideos(ADS_DIR, "ad"); //TODO: Switch this part for ads/footages
 
-  // allResults.push(...footageResults, ...adsResults);
-  allResults.push(...adsResults);
+
+  allResults.push(...footageResults);
+  // allResults.push(...adsResults); //TODO: Switch this part for ads/footages
+
 
   // Save results to JSON file
   const outputPath = path.join(__dirname, "taskIds.json");

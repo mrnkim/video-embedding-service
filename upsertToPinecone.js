@@ -18,35 +18,98 @@ function sanitizeVectorId(str) {
 }
 
 async function upsertToPinecone() {
-  const pc = new Pinecone({ apiKey: PINECONE_API_KEY });
-  const index = pc.Index(PINECONE_INDEX);
+  try {
+    console.log('Initializing Pinecone client...');
+    const pc = new Pinecone({ apiKey: PINECONE_API_KEY });
 
-  // Read prepared vectors
-  const vectors = JSON.parse(
-    fs.readFileSync(path.join(__dirname, 'preparedVectors.json'))
-  );
+    console.log('Connecting to index:', PINECONE_INDEX);
+    const index = pc.Index(PINECONE_INDEX);
 
-  console.log(`Found ${vectors.length} vectors to upsert`);
+    // Read prepared vectors
+    const vectors = JSON.parse(
+      fs.readFileSync(path.join(__dirname, 'preparedVectors.json'))
+    );
 
-  // Sanitize vector IDs before upserting
-  const sanitizedVectors = vectors.map(vector => ({
-    ...vector,
-    id: sanitizeVectorId(vector.id)
-  }));
+    console.log(`Found ${vectors.length} vectors to upsert`);
 
-  // Upsert in batches of 100
-  const BATCH_SIZE = 100;
-  for (let i = 0; i < sanitizedVectors.length; i += BATCH_SIZE) {
-    const batch = sanitizedVectors.slice(i, i + BATCH_SIZE);
-    try {
-      console.log(`Upserting batch ${Math.floor(i / BATCH_SIZE) + 1}`);
-      await index.upsert(batch);
-    } catch (error) {
-      console.error(`Error upserting batch ${Math.floor(i / BATCH_SIZE) + 1}:`, error);
+    // 벡터 데이터 로깅
+    console.log('Sample vector data:', {
+      id: vectors[0].id,
+      metadata: vectors[0].metadata,
+      valuesLength: vectors[0].values.length,
+      sampleValues: vectors[0].values.slice(0, 5)
+    });
+
+    // Sanitize vector IDs
+    const sanitizedVectors = vectors.map(vector => ({
+      ...vector,
+      id: sanitizeVectorId(vector.id)
+    }));
+
+    // 벡터 형식 검증
+    const isValidVector = sanitizedVectors.every(vector =>
+      vector.id &&
+      Array.isArray(vector.values) &&
+      vector.values.length === 1024 &&
+      vector.values.every(v => typeof v === 'number')
+    );
+    console.log('Vector validation:', { isValid: isValidVector });
+
+    // 배치 크기를 더 작게 조정
+    const batchSize = 5;
+    console.log('Starting upsert operation in smaller batches...');
+
+    for (let i = 0; i < sanitizedVectors.length; i += batchSize) {
+      const batch = sanitizedVectors.slice(i, i + batchSize);
+      console.log(`Upserting batch ${Math.floor(i/batchSize) + 1} of ${Math.ceil(sanitizedVectors.length/batchSize)}`);
+      console.log('Batch vector IDs:', batch.map(v => v.id));
+
+      try {
+        const upsertResponse = await index.upsert(batch);
+        console.log('Upsert response:', upsertResponse);
+
+        // 각 벡터가 실제로 업로드되었는지 즉시 확인
+        const fetchResponse = await index.fetch(batch.map(v => v.id));
+        console.log('Fetch verification:', {
+          attempted: batch.length,
+          found: Object.keys(fetchResponse.records).length
+        });
+      } catch (error) {
+        console.error('Error in batch:', error);
+        console.error('Problematic batch data:', JSON.stringify(batch, null, 2));
+        throw error;
+      }
     }
-  }
 
-  console.log('Upsert complete!');
+    // 최종 확인
+    console.log('Verifying upsert...');
+    const describeStats = await index.describeIndexStats();
+    console.log('Index stats after upsert:', describeStats);
+
+    // 무작위로 5개 벡터를 선택해서 실제로 존재하는지 확인
+    const sampleIds = sanitizedVectors
+      .map(v => v.id)
+      .sort(() => 0.5 - Math.random())
+      .slice(0, 5);
+
+    console.log('Performing final verification with random samples...');
+    const fetchResponse = await index.fetch(sampleIds);
+    sampleIds.forEach(id => {
+      console.log(`Vector ${id}: ${fetchResponse.records[id] ? 'exists' : 'not found'}`);
+    });
+
+    console.log('Upsert operation completed successfully');
+  } catch (error) {
+    console.error('Error in upsertToPinecone:', error);
+    if (error.response) {
+      console.error('Pinecone API Error Response:', {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data
+      });
+    }
+    throw error;
+  }
 }
 
 // Add confirmation prompt
@@ -61,4 +124,4 @@ process.stdin.once('data', (data) => {
     console.log('Operation cancelled');
     process.exit(0);
   }
-}); 
+});

@@ -14,7 +14,7 @@ async function deleteFootage() {
         ...Array.from({ length: 11 }, (_, i) =>
             `More than 100 dead in devastation and flooding after Hurricane Helene_${i + 77}`
         ),
-        // _full로 끝나는 ID
+        // _full로 끝나는 ID 
         'More than 100 dead in devastation and flooding after Hurricane Helene_full'
     ];
 
